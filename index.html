@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spinner Wheel</title>
+  <style>
+    :root{
+      --bg: #0b1220;
+      --card: rgba(255,255,255,0.06);
+      --text: #eaf0ff;
+      --muted: rgba(234,240,255,0.7);
+      --accent: #7c5cff;
+      --accent2: #00e5ff;
+      --danger: #ff4d6d;
+      --shadow: 0 18px 50px rgba(0,0,0,0.45);
+      --radius: 18px;
+    }
+
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      min-height:100svh;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color: var(--text);
+      background:
+        radial-gradient(1200px 900px at 10% -10%, rgba(124,92,255,0.45), transparent 55%),
+        radial-gradient(1000px 800px at 100% 0%, rgba(0,229,255,0.32), transparent 55%),
+        radial-gradient(1000px 800px at 50% 120%, rgba(255,77,109,0.18), transparent 60%),
+        var(--bg);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 18px 14px 22px;
+    }
+
+    .app{
+      width: min(520px, 100%);
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
+    }
+
+    .header{
+      padding: 14px 16px;
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .title{
+      font-size: 18px;
+      margin:0;
+      letter-spacing: 0.2px;
+    }
+    .subtitle{
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .wheelCard{
+      position: relative;
+      padding: 14px;
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .wheelWrap{
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    canvas{
+      width: 100%;
+      height: 100%;
+      display:block;
+      border-radius: 999px;
+      touch-action: manipulation;
+    }
+
+    /* Pointer */
+    .pointer{
+      position:absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 22px solid rgba(255,255,255,0.92);
+      filter: drop-shadow(0 8px 10px rgba(0,0,0,0.45));
+      z-index: 5;
+    }
+    .pointer::after{
+      content:"";
+      position:absolute;
+      left:-7px;
+      top:-20px;
+      width:14px;
+      height:14px;
+      background: rgba(255,255,255,0.92);
+      border-radius: 999px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+
+    .controls{
+      display:flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button{
+      appearance:none;
+      border:0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 700;
+      font-size: 15px;
+      color: #0b1220;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 14px 30px rgba(0,0,0,0.35);
+      flex: 1;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active{ transform: translateY(1px); }
+    button:disabled{
+      opacity: 0.55;
+      cursor:not-allowed;
+      transform:none;
+    }
+    .secondary{
+      background: rgba(255,255,255,0.10);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: none;
+    }
+
+    .hint{
+      margin: 10px 2px 0;
+      font-size: 12px;
+      color: var(--muted);
+      text-align:center;
+    }
+
+    /* Modal */
+    .modalOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.62);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 20px 16px;
+      z-index: 50;
+    }
+    .modalOverlay.show{ display:flex; }
+    .modal{
+      width: min(460px, 100%);
+      background: rgba(20, 28, 48, 0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      box-shadow: 0 22px 70px rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+    }
+    .modal h2{
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+      color: rgba(234,240,255,0.85);
+    }
+    .result{
+      margin: 0 0 14px;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 800;
+      color: #ffffff;
+      word-break: break-word;
+    }
+    .modalActions{
+      display:flex;
+      gap: 10px;
+    }
+    .closeBtn{
+      background: rgba(255,255,255,0.10);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: none;
+      flex: 1;
+    }
+    .spinAgainBtn{
+      flex: 1;
+    }
+
+    /* Small screens */
+    @media (max-width: 360px){
+      .title{ font-size: 16px; }
+      .result{ font-size: 20px; }
+      button{ font-size: 14px; padding: 11px 12px; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <section class="header">
+      <h1 class="title">Spin the Wheel</h1>
+      <p class="subtitle">Tap <b>Spin</b>. The pointer at the top chooses the slice. Result pops up when the wheel stops.</p>
+    </section>
+
+    <section class="wheelCard">
+      <div class="wheelWrap" aria-label="Spinner wheel">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" width="900" height="900"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="spinBtn" type="button">Spin</button>
+        <button id="resetBtn" class="secondary" type="button">Reset</button>
+      </div>
+      <div class="hint">Tip: Rotate your phone sideways if you want even larger text.</div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <h2 id="modalTitle">Outcome</h2>
+      <div id="resultText" class="result"></div>
+      <div class="modalActions">
+        <button id="spinAgainBtn" class="spinAgainBtn" type="button">Spin Again</button>
+        <button id="closeBtn" class="closeBtn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const slices = [
+        "Lose 2 points",
+        "Take a shot",
+        "Shotgun a beer",
+        "Lose 2 points",
+        "Wear sunglasses for next hour",
+        "Do 20 pushups",
+        "Dance for 20 sec no music",
+        "Lose 2 points",
+        "Sit under table for next game",
+        "Go clean up for next 5 min"
+      ];
+
+      const canvas = document.getElementById("wheel");
+      const ctx = canvas.getContext("2d");
+      const spinBtn = document.getElementById("spinBtn");
+      const resetBtn = document.getElementById("resetBtn");
+
+      const overlay = document.getElementById("modalOverlay");
+      const resultText = document.getElementById("resultText");
+      const closeBtn = document.getElementById("closeBtn");
+      const spinAgainBtn = document.getElementById("spinAgainBtn");
+
+      // Wheel state
+      let currentAngle = 0;      // radians, 0 = pointing right in canvas; we will treat pointer at TOP
+      let isSpinning = false;
+
+      // Animation state
+      let rafId = null;
+      let startTime = 0;
+      let startAngle = 0;
+      let targetAngle = 0;
+      let spinDurationMs = 0;
+
+      // Colors: high-contrast alternating palette
+      const palette = [
+        "#7c5cff", "#00e5ff", "#ff4d6d", "#00c853",
+        "#ffab00", "#00b0ff", "#d500f9", "#ff6d00",
+        "#64dd17", "#1de9b6"
+      ];
+
+      // Drawing helpers
+      function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+      function drawWheel() {
+        const w = canvas.width;
+        const h = canvas.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        const radius = Math.min(w, h) * 0.48;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Background ring
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + 18, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fill();
+        ctx.restore();
+
+        const count = slices.length;
+        const sliceAngle = (Math.PI * 2) / count;
+
+        // Rotate so "0" starts at the top-ish for better mental mapping.
+        // Pointer is at top; we want slice 0 to begin at top boundary.
+        const baseRotation = -Math.PI / 2;
+
+        for (let i = 0; i < count; i++) {
+          const a0 = baseRotation + currentAngle + i * sliceAngle;
+          const a1 = a0 + sliceAngle;
+
+          // Slice shape
+          ctx.save();
+          ctx.translate(cx, cy);
+
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, radius, a0, a1);
+          ctx.closePath();
+
+          ctx.fillStyle = palette[i % palette.length];
+          ctx.fill();
+
+          // Slice border
+          ctx.lineWidth = 6;
+          ctx.strokeStyle = "rgba(11,18,32,0.65)";
+          ctx.stroke();
+
+          // Text
+          const mid = (a0 + a1) / 2;
+          drawSliceText(slices[i], mid, radius);
+
+          ctx.restore();
+        }
+
+        // Center cap
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.12, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.10, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(11,18,32,0.85)";
+        ctx.fill();
+
+        // tiny highlight
+        ctx.beginPath();
+        ctx.arc(-radius*0.03, -radius*0.04, radius * 0.015, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawSliceText(text, angle, radius) {
+        // Place text along the radius, rotated to face outward.
+        // Wrap text into multiple lines and ensure it stays inside the wedge.
+        const rText = radius * 0.70; // where text block is centered
+        const maxWidth = radius * 0.42; // rough width limit for wrapping
+
+        ctx.save();
+        ctx.rotate(angle);
+        ctx.translate(rText, 0);
+
+        // Rotate text so it reads upright (not upside down)
+        if (angle > Math.PI / 2 && angle < (3 * Math.PI) / 2) {
+          ctx.rotate(Math.PI);
+        }
+
+        // Determine dynamic font size based on length
+        // (keeps long labels readable without spilling)
+        const base = radius * 0.060; // scales with canvas
+        const len = text.length;
+        let fontSize = base;
+        if (len > 22) fontSize *= 0.86;
+        if (len > 30) fontSize *= 0.78;
+        fontSize = clamp(fontSize, 18, 42);
+
+        ctx.font = `800 ${fontSize}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // Wrap
+        const lines = wrapText(ctx, text, maxWidth);
+        const lineHeight = fontSize * 1.15;
+        const blockHeight = lines.length * lineHeight;
+
+        // Add subtle outline for contrast
+        ctx.lineWidth = Math.max(4, fontSize * 0.18);
+        ctx.strokeStyle = "rgba(0,0,0,0.55)";
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+
+        // Draw lines centered
+        const startY = -blockHeight / 2 + lineHeight / 2;
+        for (let i = 0; i < lines.length; i++) {
+          const y = startY + i * lineHeight;
+          ctx.strokeText(lines[i], 0, y);
+          ctx.fillText(lines[i], 0, y);
+        }
+
+        ctx.restore();
+      }
+
+      function wrapText(context, text, maxWidth) {
+        const words = text.split(/\s+/).filter(Boolean);
+        if (words.length <= 1) return [text];
+
+        const lines = [];
+        let line = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+          const testLine = line + " " + words[i];
+          const { width } = context.measureText(testLine);
+          if (width <= maxWidth) {
+            line = testLine;
+          } else {
+            lines.push(line);
+            line = words[i];
+          }
+        }
+        lines.push(line);
+
+        // If still too many lines, try a fallback: split longest line
+        if (lines.length > 3) {
+          // compact by allowing slightly longer lines if possible
+          return compactWrap(context, words, maxWidth * 1.15, 3);
+        }
+        return lines;
+      }
+
+      function compactWrap(context, words, maxWidth, maxLines) {
+        const lines = [];
+        let line = "";
+
+        for (const word of words) {
+          const test = line ? (line + " " + word) : word;
+          if (context.measureText(test).width <= maxWidth) {
+            line = test;
+          } else {
+            lines.push(line);
+            line = word;
+          }
+        }
+        if (line) lines.push(line);
+
+        // If still too many lines, merge last lines
+        while (lines.length > maxLines) {
+          const last = lines.pop();
+          lines[lines.length - 1] = lines[lines.length - 1] + " " + last;
+        }
+        return lines;
+      }
+
+      // Selection logic:
+      // Pointer is at TOP. We compute which slice is under the pointer after spin.
+      function getSelectedIndex() {
+        const count = slices.length;
+        const sliceAngle = (Math.PI * 2) / count;
+
+        // Our drawing starts with baseRotation = -PI/2, and we apply currentAngle.
+        // Pointer is at angle -PI/2 in canvas coordinates (top).
+        // We want the slice whose angular interval contains pointerAngle.
+        const pointerAngle = -Math.PI / 2;
+
+        // Normalize difference between pointer and wheel rotation
+        // Equivalent: angle in wheel's local space
+        let relative = pointerAngle - ( -Math.PI / 2 + currentAngle ); // cancels baseRotation
+        // Now relative is angle from slice 0 start
+        relative = normalizeAngle(relative);
+
+        const idx = Math.floor(relative / sliceAngle) % count;
+        return idx;
+      }
+
+      function normalizeAngle(a){
+        const tau = Math.PI * 2;
+        a = a % tau;
+        if (a < 0) a += tau;
+        return a;
+      }
+
+      function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
+
+      function startSpin() {
+        if (isSpinning) return;
+        isSpinning = true;
+        spinBtn.disabled = true;
+
+        // Random spin: multiple full rotations + random offset
+        // Duration: feels good on mobile
+        const fullRotations = 7 + Math.random() * 4; // 7–11 turns
+        const randomOffset = Math.random() * Math.PI * 2;
+
+        startAngle = currentAngle;
+        targetAngle = startAngle + fullRotations * Math.PI * 2 + randomOffset;
+        spinDurationMs = 3200 + Math.random() * 1200; // 3.2–4.4s
+        startTime = performance.now();
+
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function tick(now) {
+        const elapsed = now - startTime;
+        const t = clamp(elapsed / spinDurationMs, 0, 1);
+        const eased = easeOutCubic(t);
+
+        currentAngle = startAngle + (targetAngle - startAngle) * eased;
+        drawWheel();
+
+        if (t < 1) {
+          rafId = requestAnimationFrame(tick);
+        } else {
+          // snap to normalized angle
+          currentAngle = normalizeAngle(currentAngle);
+          drawWheel();
+
+          isSpinning = false;
+          spinBtn.disabled = false;
+
+          const idx = getSelectedIndex();
+          showResult(slices[idx]);
+        }
+      }
+
+      function showResult(text) {
+        resultText.textContent = text;
+        overlay.classList.add("show");
+      }
+
+      function closeModal() {
+        overlay.classList.remove("show");
+      }
+
+      function resetWheel() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+        isSpinning = false;
+        spinBtn.disabled = false;
+        currentAngle = 0;
+        drawWheel();
+        closeModal();
+      }
+
+      // Handle crispness on different device sizes
+      function resizeCanvasToDisplaySize() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1)); // cap for performance
+        const size = Math.floor(Math.min(rect.width, rect.height) * dpr);
+
+        // Keep square
+        if (canvas.width !== size || canvas.height !== size) {
+          canvas.width = size;
+          canvas.height = size;
+          drawWheel();
+        }
+      }
+
+      // Events
+      spinBtn.addEventListener("click", startSpin);
+      resetBtn.addEventListener("click", resetWheel);
+      closeBtn.addEventListener("click", closeModal);
+      spinAgainBtn.addEventListener("click", () => {
+        closeModal();
+        startSpin();
+      });
+
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeModal();
+      });
+
+      window.addEventListener("resize", () => {
+        resizeCanvasToDisplaySize();
+      });
+
+      // Prevent double-tap zoom on buttons (mobile UX)
+      document.addEventListener("touchend", (e) => {
+        const now = Date.now();
+        if (!document._lastTouchEnd) document._lastTouchEnd = now;
+        const dt = now - document._lastTouchEnd;
+        if (dt < 300) e.preventDefault();
+        document._lastTouchEnd = now;
+      }, { passive: false });
+
+      // Init
+      // Wait a tick so layout is correct
+      requestAnimationFrame(() => {
+        resizeCanvasToDisplaySize();
+        drawWheel();
+      });
+    })();
+  </script>
+</body>
+</html>
